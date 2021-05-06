@@ -1,0 +1,14 @@
+1a- 
+  - the function tend() is used to readjust the position of investment strategy by reinvesting the profit we made 
+  
+  
+  
+  - firstly this function override the tend function of the StrategyAPI interface and is only accessible externally and require to be a Keeper to be able to call it.
+  - this function in his execution call to another function of the smart contract . the function adjustPosition and the function debtOutstanding() from the vaultApi interface
+  
+  -By calling the tend() function , we will calculate the vault last performance with debOutStanding() function and analyzing the result of this function. next depending on the result , the adjustPosition() will be call to reinvest the returns we got for maximimizing profit 
+  
+ 
+ 
+ 
+ 1b- check the contract file to see the strategy
