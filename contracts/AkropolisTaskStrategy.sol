@@ -36,8 +36,10 @@ contract AkropolisTaskStrategy is BaseStrategy {
     address public yieldfarming;
     address public reward;
 
+    // uniswap router address
     address private constant uniswapRouter = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
+    // address of wrapped ethereum
     address private constant weth = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     address public router;
@@ -71,7 +73,18 @@ contract AkropolisTaskStrategy is BaseStrategy {
         _initializeStrat(_yiedfarming, _reward, _router, _pid);
     }
 
-
+    /**
+     * @notice
+     *  Initializes the Strategy, this is called only once, when the
+     *  contract is deployed.
+     * @dev `_vault` should implement `VaultAPI`.
+     * @param _vault The address of the Vault responsible for this Strategy.
+     * @param _strategist The address to assign as `strategist`.
+     * The strategist is able to change the reward address
+     * @param _rewards  The address to use for pulling rewards.
+     * @param _keeper The adddress of the _keeper. _keeper
+     * can harvest and tend a strategy.
+     */
     function _initializeStrat(
         address _yieldfarming,
         address _reward,
@@ -99,7 +112,7 @@ contract AkropolisTaskStrategy is BaseStrategy {
     }
 
 
-
+    // clone a strategy
     function cloneStrategy(
         address _vault,
         address _yieldfarming,
@@ -147,6 +160,15 @@ contract AkropolisTaskStrategy is BaseStrategy {
 
     //Base contract methods 
 
+    /**
+     * @notice This Strategy's name.
+     * @dev
+     *  You can use this field to manage the "version" of this Strategy, e.g.
+     *  `StrategySomethingOrOtherV1`. However, "API Version" is managed by
+     *  `apiVersion()` function above.
+     * @return This Strategy's name.
+     */
+
     function name() external view override returns (string memory) {
         return "AkropolisTaskStrategy";
     }
@@ -157,7 +179,30 @@ contract AkropolisTaskStrategy is BaseStrategy {
         return want.balanceOf(address(this)).add(amount);
     }
 
-
+    /**
+     * Perform any Strategy unwinding or other calls necessary to capture the
+     * "free return" this Strategy has generated since the last time its core
+     * position(s) were adjusted. Examples include unwrapping extra rewards.
+     * This call is only used during "normal operation" of a Strategy, and
+     * should be optimized to minimize losses as much as possible.
+     *
+     * This method returns any realized profits and/or realized losses
+     * incurred, and should return the total amounts of profits/losses/debt
+     * payments (in `want` tokens) for the Vault's accounting (e.g.
+     * `want.balanceOf(this) >= _debtPayment + _profit - _loss`).
+     *
+     * `_debtOutstanding` will be 0 if the Strategy is not past the configured
+     * debt limit, otherwise its value will be how far past the debt limit
+     * the Strategy is. The Strategy's debt limit is configured in the Vault.
+     *
+     * NOTE: `_debtPayment` should be less than or equal to `_debtOutstanding`.
+     *       It is okay for it to be less than `_debtOutstanding`, as that
+     *       should only used as a guide for how much is left to pay back.
+     *       Payments should be made to minimize loss from slippage, debt,
+     *       withdrawal fees, etc.
+     *
+     * See `vault.debtOutstanding()`.
+     */
     function prepareReturn(uint256 _debtOutstanding)
         internal
         override
@@ -207,6 +252,16 @@ contract AkropolisTaskStrategy is BaseStrategy {
     }
 
 
+    /**
+     * Perform any adjustments to the core position(s) of this Strategy given
+     * what change the Vault made in the "investable capital" available to the
+     * Strategy. Note that all "free capital" in the Strategy after the report
+     * was made is available for reinvestment. Also note that this number
+     * could be 0, and you should handle that scenario accordingly.
+     *
+     * See comments regarding `_debtOutstanding` on `prepareReturn()`.
+     */
+
     function adjustPosition(uint256 _debtOutstanding) internal override {
         if (emergencyExit) {
             return;
@@ -216,6 +271,19 @@ contract AkropolisTaskStrategy is BaseStrategy {
         YieldFarming(yieldfarming).stakeInPool(pid, wantBalance);
     }
 
+
+     /**
+     * Liquidate up to `_amountNeeded` of `want` of this strategy's positions,
+     * irregardless of slippage. Any excess will be re-invested with `adjustPosition()`.
+     * This function should return the amount of `want` tokens made available by the
+     * liquidation. If there is a difference between them, `_loss` indicates whether the
+     * difference is due to a realized loss, or if there is some other sitution at play
+     * (e.g. locked funds) where the amount made available is less than what is needed.
+     * This function is used during emergency exit instead of `prepareReturn()` to
+     * liquidate all of the Strategy's positions back to the Vault.
+     *
+     * NOTE: The invariant `_liquidatedAmount + _loss <= _amountNeeded` should always be maintained
+     */
     function liquidatePosition(uint256 _amountNeeded)
         internal
         override

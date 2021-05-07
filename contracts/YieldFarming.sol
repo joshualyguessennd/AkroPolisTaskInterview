@@ -22,11 +22,13 @@ contract SimpleYieldContract is Ownable {
 
     uint256 public constant BONUS_MULTIPLIER = 2;
 
+
+    // staker information
     struct StakerInfo {
         uint256 amount;
         uint256 rewardWaiting;
     }
-
+    // pool information
     struct PoolInfo {
         IERC20 poolToken;
         uint256 lastRewardBlock;
@@ -56,7 +58,7 @@ contract SimpleYieldContract is Ownable {
         startBlock = _startBlock;
     }
 
-
+    // define the logic for rewarding each new block
     function rewardBlockLogic(uint256 _from, uint256 _to) public view returns(uint256){
          if (_to <= bonusEachBlock) {
             return _to.sub(_from).mul(BONUS_MULTIPLIER);
@@ -70,6 +72,8 @@ contract SimpleYieldContract is Ownable {
         }
     }
 
+
+    // create a new pool only owner is authorized
     function newPool(
         IERC20 _poolToken,
         uint256 _allocPoint
@@ -85,7 +89,7 @@ contract SimpleYieldContract is Ownable {
         );
     }
 
-
+    // calculate the pending reward
     function pendingReward(uint256 _pid, address _user) external view returns (uint256){
         PoolInfo storage pool = poolInfo[_pid];
         StakerInfo storage user = stakerInfo[_pid][_user];
@@ -102,7 +106,7 @@ contract SimpleYieldContract is Ownable {
         return user.amount.mul(accMockPerShare).div(1e12).sub(user.rewardWaiting);
     }
 
-
+    // Stake your erc20 token on the selected pool
     function stakeInPool(uint256 _pid, uint256 _amount) public {
         PoolInfo storage pool = poolInfo[_pid];
         StakerInfo storage user = stakerInfo[_pid][msg.sender];
@@ -118,18 +122,21 @@ contract SimpleYieldContract is Ownable {
         emit Deposit(msg.sender, _pid, _amount);
     }
 
-
+    // get all the information of a pool
     function poolInfo(uint256 _pid) external view returns (address, uint256, uint256, uint256) {
         PoolInfo storage pool = poolInfo[_pid];
         return (pool.poolToken, pool.latestRewardBlock, pool.allocPoint, pool.accMockPerShare);
     }
 
+
+    // get all information of a staker inside a pool
     function stakerInfo(uint256 _pid, address _user) external view returns (uint256, uint256) {
         StakerInfo storage user = stakerInfo[_pid][_user];
         return (user.amount, user.rewardWaiting);
     }
 
 
+    // withdraw your erc20 token from the pool
     function withdrawFromPool(uint256 _pid, uint256 _amount) public {
         PoolInfo storage pool = poolInfo[_pid];
         StakerInfo storage user = stakerInfo[_pid][msg.sender];
@@ -143,6 +150,8 @@ contract SimpleYieldContract is Ownable {
     }
 
 
+
+    // logic to transfer the mock token
     function mockTokenTransfer(address _to, uint256 _amount) internal {
         uint256 mockBalance = mockToken.balanceOf(address(this));
         if(_amount > mockBalance) {
